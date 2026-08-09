@@ -1,0 +1,29 @@
+# --- TEAM CONFIDENTIAL DATA - never commit ---------------------------------
+# Telemetry, geometry, load cases, setup workbooks and team-authored source.
+*.csv
+*.xlsx
+*.xlsm
+*.xls
+*.OLRes
+*.OLPro
+*.docx
+*.pptx
+*.pdf
+*.fig
+tbre_suspension_calculator.m
+tbre_suspension_viewer.m
+VD2ChassisLoad.m
+data/
+telemetry/
+
+# allow documentation images
+!docs/*.png
+
+# --- MATLAB ----------------------------------------------------------------
+*.asv
+*.m~
+*.mex*
+*.mat
+slprj/
+codegen/
+*.slxc
