@@ -179,7 +179,7 @@ the axle that the fatigue results identify as critical.
 
 Both panels come from the same rainflow analysis of one member.
 
-![Rainflow matrices](docs/figure1.png)
+![Rainflow matrices](Figure_1.png)
 
 *Left: cycle count binned by amplitude and mean stress. Right: the damage each bin
 contributes.* The hotspots are in **different places** — thousands of low-amplitude
@@ -188,9 +188,9 @@ With an S–N slope near 12, damage scales as roughly the 12th power of amplitud
 This is exactly why the count matrix alone is not enough, and why mean stress is
 retained as a second dimension rather than averaged away.
 
-![Rainflow matrices](docs/figure2.png)
+![Rainflow matrices](Figure_2.png)
 
-![Rainflow matrices](docs/figure3.png)
+![Rainflow matrices](Figure_3.png)
 
 *Members in compression (negative mean) show damage in clean horizontal bands, since
 Goodman applies no tensile penalty. Members in tension show damage skewed toward the
