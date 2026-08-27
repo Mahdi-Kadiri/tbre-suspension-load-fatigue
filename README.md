@@ -4,8 +4,15 @@ MATLAB tooling that converts a Formula Student car's logged accelerations into a
 **per-member load spectrum** and a **fatigue assessment** for every suspension link
 and chassis clevis.
 
-Built for Team Bath Racing Electric (TBRe26), where I work as a Vehicle Dynamics
-and Chassis Engineer.
+Built for Team Bath Racing Electric, where I work as a Vehicle Dynamics and
+Chassis Engineer. The toolchain runs two configurations from one codebase:
+
+- **TBRe25** — the car the endurance telemetry was logged on: analysed
+  end-to-end (its parameters, its geometry, its measured duty cycle).
+- **TBRe26** — the car being built: validated against its published design
+  loads, with the roll-stiffness (LLTD) load-transfer layer enabled, driven
+  by the TBRe25 duty cycle as a **stated provisional** until TBRe26 running
+  data exists. Every output prints that provenance banner.
 
 ---
 
@@ -68,6 +75,15 @@ telemetry-length history.
 An initial ~20% discrepancy on the upper links was **not** a solver error — it was
 traced to a superseded hardpoint revision, which led to the findings below.
 
+**Physical anchor.** The one physical fatigue test available (a wishbone-insert
+specimen, fully reversed, run-out with no damage) is used in the **force domain**:
+comparing test amplitude directly against the rainflow force spectrum bypasses both
+the stress-calibration placeholder and the material-data scatter. The test amplitude
+exceeds the largest amplitude the worst-loaded member produces in service by ~1.8×,
+and anchoring an S–N curve on it (borrowing only the literature slope) bounds insert
+life at thousands of endurance events even on the pessimistic all-cycles-at-peak
+assumption.
+
 ---
 
 ## Findings
@@ -104,9 +120,25 @@ Stated plainly, because they bound what the numbers mean.
 
 - **Quasi-static.** No inertial or damping terms. Partly mitigated by driving the
   model with measured accelerations, which already contain the transient content.
-- **Vertical load is chassis-measured.** A body-mounted accelerometer under-captures
-  the unsprung inertial spike at kerb strikes — exactly the fatigue-relevant vertical
-  content. Damper-position-derived tyre load is the intended fix.
+- **Vertical content is bandwidth-limited, not calibration-limited.** The logger
+  samples at 20 Hz, so Nyquist is 10 Hz, while wheel hop for this car was **measured
+  at 20–27 Hz** on a four-post rig (consistent with 8/13 kg unsprung corner masses
+  against a rig-measured 185–191 N/mm tyre vertical rate). Kerb-strike and wheel-hop
+  energy is therefore **aliased, not merely attenuated**, and cannot be recovered by
+  any post-processing route.
+  Measured spectra bear this out: damper position carries 94.7% of its energy below
+  1 Hz and 0.1% in the 8–10 Hz band, while the chassis accelerometer's high-frequency
+  content is broadband noise rather than structure.
+
+  Deriving vertical tyre load from damper position **does** improve load estimation
+  at ride and roll frequencies (~3.9 Hz), where the accelerometer route is poor — but
+  it does not recover the kerb-strike spike. The only fix is a higher logging rate on
+  the damper and accelerometer channels, which is a logger configuration decision that
+  has to be made before a season rather than after it.
+
+  Damper position is available in millimetres directly (`DPS` channels, p1–p99 spans
+  of 22–29 mm against a 24.6 mm design spring travel), so no ADC calibration is
+  required for this dataset.
 - **Cycle counts are gate-sensitive.** Counting reversals requires a noise threshold.
   Across a plausible gate range the count varies several-fold, so counts are reported
   **with their gate**, which is set at 3× the measured sensor noise floor rather than
@@ -128,52 +160,37 @@ Stated plainly, because they bound what the numbers mean.
 
 ## Results
 
-Run on a **21.5 km Formula Student endurance session** (34,481 samples at 20 Hz,
-32 minutes of moving data).
+Run on a **21.5 km Formula Student endurance session** (34,481 moving samples at
+20 Hz). Acceleration cycle counts at a gate of 0.30 g (3× the measured sensor
+noise floor): **328 longitudinal / 848 lateral / 646 vertical**.
 
-### Load spectrum
+### TBRe25 — end-to-end (car matches telemetry)
 
-Acceleration cycle counts, at a gate of 0.30 g (3× the measured sensor noise floor):
+- **Steel members: all negligible.** Worst damage RR pushrod; largest amplitude
+  68 MPa (rear lower-fore) against a 108 MPa endurance limit — and the rear
+  pullrod runs in tension while the front pushrod runs in compression, which
+  Goodman penalises accordingly.
+- **Aluminium clevises govern:** worst ~3.8×10⁴ endurance-run equivalents to the
+  D = 0.5 design target at ~175 MPa peak notch stress (placeholder stress
+  calibration — the ranking is meaningful, the absolute lives are not yet).
+- **The rear works 2–4× harder than the front** — confirmed on two independent
+  geometry sets, so it is load path (pullrod inclination, rear brake/traction
+  share), not a data artefact.
 
-| Axis | Cycles | per km |
-|---|---|---|
-| Longitudinal | 328 | 15.3 |
-| Lateral | 848 | 39.4 |
-| Vertical | 646 | 30.0 |
+### TBRe26 — validated configuration, LLTD layer on
 
-Representative per-member figures (tension positive):
+- Larger tube sections cut peak steel amplitude to 40 MPa: everything steel is
+  comfortably infinite-life.
+- Clevises still govern (7.8×10⁴ blocks at 177 MPa, same placeholder caveat).
+- **Roll-stiffness vs 50/50 load transfer:** peak member loads shift by −4.9% to
+  **+5.1%**, systematically rearward — the simple split is non-conservative on
+  the axle where the fatigue damage concentrates.
+- Every output prints its duty-cycle provenance: TBRe25 telemetry as a stated
+  provisional until TBRe26 running data exists.
 
-| Member | Mean load [N] | Cycles/km | Avg amplitude [N] |
-|---|---|---|---|
-| Rear pushrod | −2,350 | 61.6 | 393 |
-| Front pushrod | −1,911 | 60.3 | 308 |
-| Rear lower-fore | −146 | 42.1 | **632** |
-| Front lower-fore | 1,017 | 35.0 | 322 |
-| Rear upper-fore | 915 | 32.5 | 387 |
-| Front upper-fore | −224 | unstable | 135 |
-
-**Pushrods take the most reversals** — they sit in the vertical load path, so every
-bump passes through them. **Rear lower wishbones take the largest amplitudes**,
-roughly double the front, consistent with the measured rearward LLTD.
-
-### Fatigue
-
-- **Steel links: negligible.** Highest amplitude across the full endurance distance
-  is ~35 MPa against a 108 MPa endurance limit.
-- **Aluminium clevises: the governing population.** The worst is a rear upper clevis
-  at a peak notch stress of ~178 MPa. These are the only parts accruing meaningful
-  damage, and they were sized to a static safety factor without a fatigue check.
-  Absolute lives remain provisional pending material data and FEA calibration —
-  the *ranking* is the usable result.
-
-### Load-transfer model comparison
-
-Replacing the track-width (≈50/50) lateral split with the measured roll-stiffness
-distribution redistributes peak member loads by up to **+5.1%**, systematically
-rearward. The 50/50 model is therefore mildly **non-conservative at the rear** —
-the axle that the fatigue results identify as critical.
-
----
+Reproducibility: the full chain was independently re-implemented in a second
+language and reproduces the MATLAB outputs exactly (damage sums to 4 significant
+figures, stresses to 0.1 MPa) on the same input data.
 
 ## Figures
 
@@ -202,12 +219,17 @@ high-mean corner. Same tool, visibly different physics.*
 
 | File | Purpose |
 |---|---|
-| `RUNALL.m` | Entry point. Run this. |
-| `FatiguePipeline.m` | Corner solver, load transfer, rainflow, S–N, Miner |
+| `RUNALL_V2.m` | **TBRe25 entry point** — car matches the telemetry end-to-end |
+| `RUNALL_TBRE26.m` | **TBRe26 entry point** — 26 hardware, LLTD layer on, provisional duty cycle |
+| `RUN_ALLOY_FATIGUE_V2.m` | Aluminium deep-dive: clevis + wishbone-insert populations |
+| `FatiguePipeline_V2.m` | Corner solver, load transfer, rainflow, S–N, Miner |
 | `vd_load_spectrum.m` | Mean load, cycle count, amplitude per member |
 | `rainflow_matrix.m` | 2D range–mean matrix, damage matrix, equivalent load |
+| `alloy_fatigue.m`, `alloy_lib.m` | Aluminium S–N handling; documented material scatter |
+| `tbre25_params_V2.m`, `tbre26_params_V2.m` | Per-car vehicle parameters |
+| `tbre25_geometry.m`, `tbre26_geometry.m` | Hardpoints — **placeholder coordinates** (see data note) |
 
-Open `RUNALL.m` and press Run. With no data file set it runs on built-in synthetic
+Open either `RUNALL_*.m` and press Run. With no data file set it runs on built-in synthetic
 telemetry, so the repository is self-contained.
 
 To run on logged data, set `DATA_FILE` to a CSV containing time, speed, yaw rate and
